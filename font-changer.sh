@@ -93,14 +93,51 @@ done
 
 echo -e "\n${cyan}Now installing \"${green}$selected_font${cyan}\" font,"
 
-copy_dest="${HOME}/.local/share/fonts/sinhala-font-changer/${selected_font}"
+# Clean up old fonts from previous installations
+font_base_dir="${HOME}/.local/share/fonts/sinhala-font-changer"
+if [ -d "$font_base_dir" ]; then
+    echo "${yellow}Removing previously installed fonts..."
+    rm -rf "$font_base_dir"
+fi
+
+copy_dest="${font_base_dir}/${selected_font}"
 mkdir -p "$copy_dest"
 cp ./fonts/"${selected_font}"/* "$copy_dest"
 
 echo "${cyan}Setting up \"${green}$selected_font${cyan}\" as the system-wide sinhala font,"
 
 mkdir -p "${HOME}/.config/fontconfig/conf.d"
-sed "s/FONT_PLACE_HOLDER/${selected_font}/g" 50-si-custom.conf > "${HOME}/.config/fontconfig/conf.d/50-si-custom.conf"
+temp_conf=$(mktemp)
+
+# First replace FONT_PLACE_HOLDER
+sed "s/FONT_PLACE_HOLDER/${selected_font}/g" 50-si-custom.conf > "$temp_conf"
+
+# Build and inject blacklist for other Sinhala fonts
+all_fonts=("Noto Sans Sinhala" "Noto Serif Sinhala" "UN-Gurulugomi" "tuxSinhala Bold")
+blacklist_file=$(mktemp)
+
+for font in "${all_fonts[@]}"; do
+    if [ "$font" != "$selected_font" ]; then
+        cat >> "$blacklist_file" << EOF
+		<rejectfont>
+			<pattern>
+				<patelt name="family">
+					<string>${font}</string>
+				</patelt>
+				<patelt name="lang">
+					<string>si</string>
+				</patelt>
+			</pattern>
+		</rejectfont>
+EOF
+    fi
+done
+
+# Replace BLACKLIST_PLACE_HOLDER with contents of blacklist file
+sed -e "/<!-- BLACKLIST_PLACE_HOLDER -->/r $blacklist_file" -e "/<!-- BLACKLIST_PLACE_HOLDER -->/d" \
+    "$temp_conf" > "${HOME}/.config/fontconfig/conf.d/50-si-custom.conf"
+
+rm -f "$temp_conf" "$blacklist_file"
 
 fc-cache -f
 
