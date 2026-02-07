@@ -1,17 +1,28 @@
 #!/bin/bash
+set -euo pipefail
 
 # -------------------------- Change dir to current -----------------------
-pushd $(dirname $0) >/dev/null;
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pushd "${SCRIPT_DIR}" >/dev/null
+# ------------------------------------------------------------------------
+
+# ---------------------- Dependency checks --------------------------------
+for cmd in tput sed fc-cache xdg-open; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "ERROR: Required command '$cmd' not found. Please install it." >&2
+        exit 1
+    fi
+done
 # ------------------------------------------------------------------------
 
 # -------------------------- Colored tput outputs ------------------------
-red=$(tput setaf 9);
-yellow=$(tput setaf 11);
-green=$(tput setaf 10);
-cyan=$(tput setaf 14);
-white=$(tput setaf 15);
-bold=$(tput bold);
-end=$(tput sgr0);
+red=$(tput setaf 9 2>/dev/null || echo '');
+yellow=$(tput setaf 11 2>/dev/null || echo '');
+green=$(tput setaf 10 2>/dev/null || echo '');
+cyan=$(tput setaf 14 2>/dev/null || echo '');
+white=$(tput setaf 15 2>/dev/null || echo '');
+bold=$(tput bold 2>/dev/null || echo '');
+end=$(tput sgr0 2>/dev/null || echo '');
 
 # ------------------------------ Welcome log -----------------------------
 printf \
@@ -82,14 +93,14 @@ done
 
 echo -e "\n${cyan}Now installing \"${green}$selected_font${cyan}\" font,"
 
-copy_dest=~/".local/share/fonts/sinhala-font-changer/${selected_font}"
+copy_dest="${HOME}/.local/share/fonts/sinhala-font-changer/${selected_font}"
 mkdir -p "$copy_dest"
-cp -n ./fonts/"${selected_font}"/* "$copy_dest"
+cp ./fonts/"${selected_font}"/* "$copy_dest"
 
 echo "${cyan}Setting up \"${green}$selected_font${cyan}\" as the system-wide sinhala font,"
 
-mkdir -p ~/.config/fontconfig/conf.d
-sed "s/FONT_PLACE_HOLDER/${selected_font}/" 50-si-custom.conf > ~/.config/fontconfig/conf.d/50-si-custom.conf
+mkdir -p "${HOME}/.config/fontconfig/conf.d"
+sed "s/FONT_PLACE_HOLDER/${selected_font}/g" 50-si-custom.conf > "${HOME}/.config/fontconfig/conf.d/50-si-custom.conf"
 
 fc-cache -f
 
@@ -98,6 +109,8 @@ echo -e "${cyan}Current sinhala font is:\n ${yellow}$(LANG=si fc-match)"
 
 echo -e "${green}Done!..${end}"
 
-sed 's/FONT_PLACE_HOLDER/'"${selected_font}"'/g' test-current-sinhala-font > current-sinhala-font.txt;
-xdg-open current-sinhala-font.txt &>/dev/null;
+sed "s/FONT_PLACE_HOLDER/${selected_font}/g" test-current-sinhala-font > current-sinhala-font.txt
+xdg-open current-sinhala-font.txt &>/dev/null || true
+
+popd >/dev/null
 # ------------------------------------------------------------------------
